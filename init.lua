@@ -628,7 +628,11 @@ require('lazy').setup({
         -- But for many setups, the LSP (`ts_ls`) will work just fine
         -- ts_ls = {},
         --
-
+        clangd = {
+          capabilities = {
+            offsetEncoding = { 'utf-16' },
+          },
+        },
         lua_ls = {
           -- cmd = { ... },
           -- filetypes = { ... },
@@ -808,13 +812,45 @@ require('lazy').setup({
           --    $body
           --  end
           --
+
           ['<Tab>'] = cmp.mapping(function(fallback)
+            local function CheckBackspace()
+              local col = vim.fn.col '.' - 1
+              if col == 0 then
+                return true
+              end
+              local line = vim.fn.getline '.'
+              local char_before_cursor = line:sub(col, col)
+              if char_before_cursor == ' ' or char_before_cursor == '\t' then
+                return true
+              end
+              return false
+            end
+
+            local function NextCharIsPair()
+              local col = vim.fn.col '.' - 1
+              local line = vim.fn.getline '.'
+              local next_char = line:sub(col + 1, col + 1)
+              local pair_chars = { ')', ']', '}', '>', "'", '"', '`' }
+              for _, char in ipairs(pair_chars) do
+                if next_char == char then
+                  return true
+                end
+              end
+
+              return false
+            end
+
             if cmp.visible() then
               cmp.mapping.confirm { select = true }()
             elseif luasnip.locally_jumpable(1) then
               luasnip.jump(1)
-            else
+            elseif NextCharIsPair() then
+              vim.api.nvim_input '<Right>'
+            elseif CheckBackspace() then
               fallback()
+            else
+              cmp.mapping.complete()
             end
           end, { 'i', 's' }),
           ['<S-Tab>'] = cmp.mapping(function()
